@@ -1,0 +1,18 @@
+###
+security extension for dns 
+###
+
+
+aws route53 create-key-signing-key \
+--region us-east-1 \ 
+--hosted-zone-id $HostedZone_id \
+--key-management-service-arn $cmk_arn \ 
+--name $ksk_name \ 
+--status ACTIVE \ 
+--caller-reference $unique_string
+
+
+
+aws route53 enable-hosted-zone-dnssec \ 
+--hosted-zone-id $hostedzone_id \
+--region us-east-1

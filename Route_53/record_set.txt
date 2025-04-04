@@ -1,0 +1,24 @@
+### 
+Record sets are always changed in batch via the API
+###
+
+
+
+aws route53 change-resource-record-sets \
+--hosted-zone-id YOUR_HOSTED_ZONE_ID \
+--change-batch '{"changes": [{
+    "Action": "UPSERT",
+    "ResourceRecordSet": {
+        "Name": "test.example.com",
+        "Type": "CNAME",
+        "TTL": 300,
+        "ResourceRecords":[{
+            "Value": "news.example.com"
+        }]
+    }
+}]}
+
+
+####
+Optional under ResourceRecordSet Alias target {DNSName, HostedZoneID}
+target to cloudfront, Elasticbeanstalk, ELB, S3, Resource record set, VPC endpoint, API gateway endpoint.

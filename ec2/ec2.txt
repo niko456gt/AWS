@@ -1,0 +1,9 @@
+aws ec2 run-instances \
+--image-id ami-xxxxxxxxxxxxxxxxx \ # Reemplaza con la AMI de tu región (ej. Amazon Linux 2)
+--instance-type t3.micro \
+--key-name MiClaveSSH \ # Reemplaza con tu clave SSH
+--security-group-ids sg-xxxxxxxxxxxxxxxxx \ # Reemplaza con tu SG
+--subnet-id subnet-xxxxxxxxxxxxxxxxx \ # Reemplaza con tu subnet
+--associate-public-ip-address \
+--tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=WebServer}]' \
+--user-data file://install_apache.sh
