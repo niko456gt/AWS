@@ -15,7 +15,7 @@ class CdkFwStack(Stack):
         # ---------------------------------------------------------------------
         # Network Firewall Resources
         # ---------------------------------------------------------------------
-        # Ask for the VPC ID from the user
+        # This stack creates a Network Firewall with both stateless and stateful rule groups.
         # stateless firewall rules
         # ----------------- --------------------------------------------------- 
 
@@ -48,6 +48,9 @@ class CdkFwStack(Stack):
 
         vpc_id = "vpc-088ed51f8070c36c6"
         vpc = ec2.Vpc.from_lookup(self, "WebAppVPC", vpc_id=vpc_id)
+
+        # select private subnets
+        fw_subnets = vpc.select_subnets(subnet_type=ec2.SubnetType.PUBLIC)
         # ---------------------------------------------------------------------
         # Network Firewall Rule Group (Stateful)
         # ---------------------------------------------------------------------
@@ -60,7 +63,7 @@ class CdkFwStack(Stack):
             description="Allow any traffic",
             rule_group=fw.CfnRuleGroup.RuleGroupProperty(
                 rules_source=fw.CfnRuleGroup.RulesSourceProperty(
-                    rules_string="pass tcp any any -> any any (msg:\"Allow any traffic\"; flow; established,related; sid:1; rev:1;)"
+                    rules_string="pass tcp any any -> any any (msg:\"Allow any traffic\"; sid:1; rev:1;)"
                     # You can also use rules_source_list for more complex stateful rules
                 ),
                 stateful_rule_options=fw.CfnRuleGroup.StatefulRuleOptionsProperty(
@@ -77,15 +80,16 @@ class CdkFwStack(Stack):
             "FirewallPolicy",
             firewall_policy_name="MyFirewallPolicy",
             firewall_policy=fw.CfnFirewallPolicy.FirewallPolicyProperty(
-                stateless_default_actions=["aws:pass"],
-                stateless_fragment_default_actions=["aws:pass"],
-                stateful_default_actions=["aws:drop"],
-                stateful_engine_options=fw.CfnFirewallPolicy.StatefulEngineOptionsProperty(
-                    rule_order="DEFAULT_ACTION_ORDER"
-                ),
+                stateless_rule_group_references=[
+                    fw.CfnFirewallPolicy.StatelessRuleGroupReferenceProperty(
+                        priority=10,
+                        resource_arn=stateless_rule_group.attr_rule_group_arn
+                    )
+                ],
+                stateless_default_actions=["aws:forward_to_sfe"],
+                stateless_fragment_default_actions=["aws:forward_to_sfe"],
                 stateful_rule_group_references=[
                     fw.CfnFirewallPolicy.StatefulRuleGroupReferenceProperty(
-                        priority=10,
                         resource_arn=stateful_rule_group.attr_rule_group_arn
                     )
                 ]
@@ -102,11 +106,7 @@ class CdkFwStack(Stack):
             self,
             "NetworkFirewall",
             firewall_policy_arn=firewall_policy.attr_firewall_policy_arn,
-            subnet_mappings=[
-                fw.CfnFirewall.SubnetMappingProperty(
-                    subnet_id=subnet_id
-                ) for subnet_id in subnet_ids
-            ],
+            subnet_mappings=[{"subnetId": subnet.subnet_id} for subnet in fw_subnets.subnets],
             vpc_id=vpc.vpc_id,
             firewall_name="my-network-firewall",
             description="My Network Firewall"
