@@ -50,8 +50,6 @@ def handler(event, context):
         'body': 'User count: ' + str(user_count)
     }
         
-                                    
-    })
             """),
             timeout=Duration.seconds(30),
             initial_policy=[
@@ -71,13 +69,42 @@ def handler(event, context):
                 namespace=user_metric_namespace,
                 statistic="Average",
                 period=Duration.minutes(5),
+                
             ),
             comparison_operator=cw.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
-            threshold=3,
+            threshold=2,
             evaluation_periods=1,
-            period=Duration.minutes(5),
             alarm_description="Alarm when user count is greater than 3",
         )
+        #cloudwatch dashboard
+        dashboard = cw.Dashboard(
+            self, "IAMUserDashboard",
+            dashboard_name="Number-of-users"
+        )
+        dashboard.add_widgets(
+            cw.GraphWidget(
+                title="IAM User Count",
+                left=[
+                    cw.Metric(
+                        metric_name=user_metric_name,
+                        namespace=user_metric_namespace,
+                        statistic="Average",
+                        period=Duration.minutes(5),
+                    )],
+                left_y_axis=cw.YAxisProps(
+                        label="contador",
+                        min=0,
+                        max=10
+                    ),
+                
+            )
+        )
+        # Event rule to trigger the lambda function every 5 minutes
+        rule = events.Rule(
+            self, "Rule",
+            schedule=events.Schedule.rate(Duration.minutes(1))
+        )
+        rule.add_target(targets.LambdaFunction(metric_lambda))
 # the only thing is mandatory is the MFA.
 # policy Force_MFA.
         
