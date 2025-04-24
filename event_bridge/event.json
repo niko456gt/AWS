@@ -1,0 +1,14 @@
+{
+    "version": "0",
+    "id": "test-id-1234",
+    "detail-type": "AWS API Call via CloudTrail",
+    "source": "aws.ec2",
+    "account": "288162407920",
+    "time": "2025-04-18T02:02:16Z",
+    "region": "us-east-1",
+    "resources": [],
+    "detail": {
+      "eventSource": "ec2.amazonaws.com",
+      "eventName": "CreateTransitGatewayVpcAttachment"
+    }
+  }
