@@ -9,8 +9,8 @@ from cloudwatch.cloudwatch_stack import CloudwatchStack
 app = cdk.App()
 CloudwatchStack(app, "CloudwatchStack",
     env=cdk.Environment(
-        account=os.getenv("288162407920"),
-        region=os.getenv("us-east-1"),
+        account=os.getenv("replace_with_your_account_id"),
+        region=os.getenv("replace_with_your_region"),
         )
     )
 
