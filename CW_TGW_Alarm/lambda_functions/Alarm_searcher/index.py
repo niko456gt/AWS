@@ -1,9 +1,11 @@
 import boto3
 import json
+import os
 
 cloudwatch = boto3.client('cloudwatch')
 
 def handler(event, context):
+
     # paremeters for namepsace and metric name
     namespace = "TAC_Monitoring Custom Metrics"
     dimmension_name = "TransitGatewayID"
@@ -82,6 +84,8 @@ def describe_alarms(metric_name):
     )
     return response['MetricAlarms']
 def create_alarm(namespace, dimmension_name, dimension_value,metric_name):
+    # Get the SNS topic ARN from the environment variable
+    sns_topic_arn = os.environ['TOPIC_ARN']
     #create an alarm if it does not exist
     response = cloudwatch.put_metric_alarm(
         AlarmName=f'{metric_name}_Alarm',
@@ -91,6 +95,7 @@ def create_alarm(namespace, dimmension_name, dimension_value,metric_name):
         Period=300,
         EvaluationPeriods=1,
         Threshold=1,
+        AlarmActions=[sns_topic_arn],  # Replace with your SNS topic ARN
         ComparisonOperator='LessThanThreshold',
         Dimensions=[
             {

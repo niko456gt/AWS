@@ -13,7 +13,7 @@ from constructs import Construct
 
 class LambdiniStack(Stack):
 
-    def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
+    def __init__(self, scope: Construct, construct_id: str,topic, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         user_metric_namespace = "Custom/IAM"
@@ -22,7 +22,7 @@ class LambdiniStack(Stack):
 
         #Lambda (As there is no resource type in cdk for this, we need to create a lambda function)
         metric_lambda = lambda_.Function(
-            self, "IAMUserCounter",
+            self, "TGW_Searcher",
             runtime=lambda_.Runtime.PYTHON_3_12,
             handler="index.handler",
             code=lambda_.Code.from_asset(str(Path(__file__).parent.parent / "lambda_functions/TGW_searcher")),
@@ -50,14 +50,19 @@ class LambdiniStack(Stack):
             handler="index.handler",
             code=lambda_.Code.from_asset(str(Path(__file__).parent.parent / "lambda_functions/Alarm_searcher")),
             timeout=Duration.seconds(30),
+            environment={
+                "TOPIC_ARN": topic.topic_arn
+            },
             initial_policy=[
                 iam.PolicyStatement(
                     actions=["cloudwatch:GetMetricData",
                              "cloudwatch:ListMetrics",
                              "cloudwatch:PutMetricAlarm",
-                             "cloudwatch:DescribeAlarms"],
+                             "cloudwatch:DescribeAlarms",
+                             "sns:Publish",],
                     resources=["*"]
                 )
             ]
         )
         rule.add_target(targets.LambdaFunction(alarm_lambda))
+        topic.grant_publish(alarm_lambda)

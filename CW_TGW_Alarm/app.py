@@ -8,14 +8,19 @@ from lambdini_stack.lambdini_stack import LambdiniStack
 
 
 app = cdk.App()
-CwTgwAlarmStack(app, "CwTgwAlarmStack",
-    
-    )
+
+cw_stack =CwTgwAlarmStack(app, "CwTgwAlarmStack",
+        env=cdk.Environment(
+            account=os.getenv("288162407920"),
+            region=os.getenv("us-east-1"),
+            )      
+        )
 LambdiniStack(app, "LambdiniStack",
+    topic=cw_stack.topic,
     env=cdk.Environment(
         account=os.getenv("288162407920"),
         region=os.getenv("us-east-1"),
-        )       
+        )
               )
 
 app.synth()

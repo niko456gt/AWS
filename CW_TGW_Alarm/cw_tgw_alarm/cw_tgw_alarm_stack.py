@@ -1,5 +1,5 @@
 from aws_cdk import (
-    # Duration,
+    aws_sns as sns,
     Stack,
     # aws_sqs as sqs,
 )
@@ -10,10 +10,7 @@ class CwTgwAlarmStack(Stack):
     def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
-        # The code that defines your stack goes here
-
-        # example resource
-        # queue = sqs.Queue(
-        #     self, "CwTgwAlarmQueue",
-        #     visibility_timeout=Duration.seconds(300),
-        # )
+        self.topic = sns.Topic(self, "AWS_TAC_DASHBOARD",
+            display_name="AWS TAC Dashboard",
+            topic_name="AWS_TAC_DASHBOARD",
+        )
