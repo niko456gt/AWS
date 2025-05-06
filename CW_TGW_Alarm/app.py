@@ -11,14 +11,14 @@ app = cdk.App()
 
 cw_stack =CwTgwAlarmStack(app, "CwTgwAlarmStack",
         env=cdk.Environment(
-            account=os.getenv("288162407920"),
+            account=os.getenv("needupdate"),
             region=os.getenv("us-east-1"),
             )      
         )
 LambdiniStack(app, "LambdiniStack",
     topic=cw_stack.topic,
     env=cdk.Environment(
-        account=os.getenv("288162407920"),
+        account=os.getenv("needupdate"),
         region=os.getenv("us-east-1"),
         )
               )
