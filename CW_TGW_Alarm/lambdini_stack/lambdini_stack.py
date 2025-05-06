@@ -39,3 +39,25 @@ class LambdiniStack(Stack):
             schedule=events.Schedule.rate(Duration.minutes(5))
         )
         rule.add_target(targets.LambdaFunction(metric_lambda))
+
+
+
+
+        # lambda for alarm searcher
+        alarm_lambda = lambda_.Function(
+            self, "AlarmSearcher",
+            runtime=lambda_.Runtime.PYTHON_3_12,
+            handler="index.handler",
+            code=lambda_.Code.from_asset(str(Path(__file__).parent.parent / "lambda_functions/Alarm_searcher")),
+            timeout=Duration.seconds(30),
+            initial_policy=[
+                iam.PolicyStatement(
+                    actions=["cloudwatch:GetMetricData",
+                             "cloudwatch:ListMetrics",
+                             "cloudwatch:PutMetricAlarm",
+                             "cloudwatch:DescribeAlarms"],
+                    resources=["*"]
+                )
+            ]
+        )
+        rule.add_target(targets.LambdaFunction(alarm_lambda))
