@@ -8,7 +8,7 @@ def handler(event, context):
 
     # paremeters for namepsace and metric name
     namespace = "TAC_Monitoring Custom Metrics"
-    dimmension_name = "TransitGatewayID"
+    dimmension_name = "TransitGateway_ID"
     #fetch the available metrics for the given namespace and dimension
     metrics = get_metrics(namespace, dimmension_name)
     for metric in metrics:
@@ -16,11 +16,12 @@ def handler(event, context):
         dimension_value = metric['Dimensions'][0]['Value']
         #check if an alarm exists for the metric
         existing_alarms = describe_alarms(metric_name)
-        if not existing_alarms:
-            #create an alarm if it does not exist
-            create_alarm(namespace, dimmension_name, dimension_value,metric_name)
+        if existing_alarms and len(existing_alarms) > 0:
+            print(f"Alarm(s) already exist for metric: {metric_name}")
         else:
-            print(f"Alarm already exists for metric: {metric_name}")
+            # Create an alarm if none exist
+            create_alarm(namespace, dimmension_name, dimension_value, metric_name)
+            print(f"Created alarm for metric: {metric_name}")
     #Same for TGW Attachment
 
 
@@ -88,7 +89,7 @@ def create_alarm(namespace, dimmension_name, dimension_value,metric_name):
     sns_topic_arn = os.environ['TOPIC_ARN']
     #create an alarm if it does not exist
     response = cloudwatch.put_metric_alarm(
-        AlarmName=f'{metric_name}_Alarm',
+        AlarmName=f'{dimension_value}_HEALTH_STATUS_CHECK',
         MetricName=metric_name,
         Namespace=namespace,
         Statistic='Average',
