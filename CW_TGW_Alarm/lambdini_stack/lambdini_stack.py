@@ -29,7 +29,11 @@ class LambdiniStack(Stack):
             timeout=Duration.seconds(30),
             initial_policy=[
                 iam.PolicyStatement(
-                    actions=["cloudwatch:PutMetricData","ec2:DescribeTransitGateways"],
+                    actions=["cloudwatch:PutMetricData",
+                             "ec2:DescribeTransitGateways",
+                             "elasticloadbalancing:DescribeLoadBalancers",
+                             "ec2:DescribeTransitGatewayAttachments",
+                             "directconnect:DescribeVirtualGateways"],
                     resources=["*"]
                 )
             ]
@@ -59,6 +63,7 @@ class LambdiniStack(Stack):
                              "cloudwatch:ListMetrics",
                              "cloudwatch:PutMetricAlarm",
                              "cloudwatch:DescribeAlarms",
+                             "cloudwatch:DescribeAlarmsForMetric",
                              "sns:Publish",],
                     resources=["*"]
                 )

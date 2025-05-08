@@ -8,53 +8,70 @@ def handler(event, context):
 
     # paremeters for namepsace and metric name
     namespace = "TAC_Monitoring Custom Metrics"
-    dimmension_name = "TransitGateway_ID"
+    dimension_name = "TransitGatewayID"
     #fetch the available metrics for the given namespace and dimension
-    metrics = get_metrics(namespace, dimmension_name)
-    for metric in metrics:
+    metrics = get_metrics(namespace, dimension_name)
+    #fetch the metrics that do not have an alarm
+    metrics_without_alarms = describe_alarms(metrics, namespace)
+    for metric in metrics_without_alarms:
         metric_name = metric['MetricName']
-        dimension_value = metric['Dimensions'][0]['Value']
-        #check if an alarm exists for the metric
-        existing_alarms = describe_alarms(metric_name)
-        if existing_alarms and len(existing_alarms) > 0:
-            print(f"Alarm(s) already exist for metric: {metric_name}")
+        dimensions = metric['Dimensions']
+        # get the value for the dimension we care about
+        dimension_value = next((d['Value'] for d in dimensions if d['Name'] == dimension_name), None)
+        if dimension_value:
+            #create an alarm
+            create_alarm(namespace, dimension_name, dimension_value,metric_name)
         else:
-            # Create an alarm if none exist
-            create_alarm(namespace, dimmension_name, dimension_value, metric_name)
-            print(f"Created alarm for metric: {metric_name}")
+            print(f"Alarm already exists for metric: {metric_name}")
+
+
+    #Same for TGW Attachment
+    dimension_name = "AttachmentId"
+    #fetch the available metrics for the given namespace and dimension
+    metrics = get_metrics(namespace, dimension_name)
+    #fetch the metrics that do not have an alarm
+    metrics_without_alarms = describe_alarms(metrics, namespace)
+    for metric in metrics_without_alarms:
+        metric_name = metric['MetricName']
+        dimensions = metric['Dimensions']
+        # get the value for the dimension we care about
+        dimension_value = next((d['Value'] for d in dimensions if d['Name'] == dimension_name), None)
+        if dimension_value:
+            #create an alarm
+            create_alarm(namespace, dimension_name, dimension_value,metric_name)
+        else:
+            print(f"Alarm already exists for metric: {metric_name}")
+
+
+
+    #Same for VGW
+    dimension_name = "VirtualGatewayID"
+    #fetch the available metrics for the given namespace and dimension
+    metrics = get_metrics(namespace, dimension_name)
+    #fetch the metrics that do not have an alarm
+    metrics_without_alarms = describe_alarms(metrics, namespace)
+    for metric in metrics_without_alarms:
+        metric_name = metric['MetricName']
+        dimensions = metric['Dimensions']
+        # get the value for the dimension we care about
+        dimension_value = next((d['Value'] for d in dimensions if d['Name'] == dimension_name), None)
+        if dimension_value:
+            #create an alarm
+            create_alarm(namespace, dimension_name, dimension_value,metric_name)
+        else:
+            print(f"Alarm already exists for metric: {metric_name}")
     #Same for TGW Attachment
 
 
 
-    dimmension_name = "AttachmentId"
-    metrics = get_metrics(namespace, dimmension_name)
-    for metric in metrics:
-        metric_name = metric['MetricName']
-        dimension_value = metric['Dimensions'][0]['Value']
-        #check if an alarm exists for the metric
-        existing_alarms = describe_alarms(metric_name)
-        if not existing_alarms:
-            #create an alarm if it does not exist
-            create_alarm(namespace, dimmension_name, dimension_value,metric_name)
-        else:
-            print(f"Alarm already exists for metric: {metric_name}")
+  
 
 
-    dimmension_name = "LoadBalancerName"
-    metrics = get_metrics(namespace, dimmension_name)
-    for metric in metrics:
-        metric_name = metric['MetricName']
-        dimension_value = metric['Dimensions'][0]['Value']
-        #check if an alarm exists for the metric
-        existing_alarms = describe_alarms(metric_name)
-        if not existing_alarms:
-            #create an alarm if it does not exist
-            create_alarm(namespace, dimmension_name, dimension_value,metric_name)
-        else:
-            print(f"Alarm already exists for metric: {metric_name}")
 
 
-        
+  
+
+
 
 
 
@@ -67,24 +84,38 @@ def handler(event, context):
         'statusCode': 200,
         'body': json.dumps('Alarm creation process completed.')
     }
-def get_metrics(namespace, dimmension_name):
-    #fetch the available metrics for the given namespace and dimension
-    response = cloudwatch.list_metrics(
-        Namespace=namespace,
-        Dimensions=[
-            {
-                'Name': dimmension_name,
-            },
-        ]
-    )
-    return response['Metrics']
-def describe_alarms(metric_name):
-    #check if an alarm exists for the metric
-    response = cloudwatch.describe_alarms(
-        AlarmNamePrefix=metric_name,
-    )
-    return response['MetricAlarms']
-def create_alarm(namespace, dimmension_name, dimension_value,metric_name):
+def get_metrics(namespace, dimension_name):
+    # Get the list of metrics for the given namespace and dimension name
+    metrics = []
+    paginator = cloudwatch.get_paginator('list_metrics')
+
+    for page in paginator.paginate(Namespace=namespace, Dimensions=[{'Name': dimension_name}]):
+        metrics.extend(page['Metrics'])
+
+    return metrics
+def describe_alarms(metrics,namespace):
+    
+    #Return list of metrics (name + dimensions) that do NOT have any associated alarms.
+    metrics_without_alarms = []
+
+    for metric in metrics:
+        metric_name = metric['MetricName']
+        dimensions = metric['Dimensions']
+
+        response = cloudwatch.describe_alarms_for_metric(
+            Namespace=namespace,
+            MetricName=metric_name,
+            Dimensions=dimensions
+        )
+
+        if not response['MetricAlarms']:
+            metrics_without_alarms.append({
+                'MetricName': metric_name,
+                'Dimensions': dimensions
+            })
+
+    return metrics_without_alarms
+def create_alarm(namespace, dimension_name, dimension_value,metric_name):
     # Get the SNS topic ARN from the environment variable
     sns_topic_arn = os.environ['TOPIC_ARN']
     #create an alarm if it does not exist
@@ -96,11 +127,12 @@ def create_alarm(namespace, dimmension_name, dimension_value,metric_name):
         Period=300,
         EvaluationPeriods=1,
         Threshold=1,
+        TreatMissingData='breaching',
         AlarmActions=[sns_topic_arn],  # Replace with your SNS topic ARN
         ComparisonOperator='LessThanThreshold',
         Dimensions=[
             {
-                'Name': dimmension_name,
+                'Name': dimension_name,
                 'Value': dimension_value
             },
         ],
