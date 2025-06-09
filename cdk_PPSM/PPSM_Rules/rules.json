@@ -1,0 +1,8 @@
+[
+    {
+        "IP Protocol": "TCP",
+        "low port": 80,
+        "high port": 80,
+        "Security Group": "PPSM-HTTP"
+    }
+]
