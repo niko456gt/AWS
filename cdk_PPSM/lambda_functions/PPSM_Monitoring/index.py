@@ -15,15 +15,16 @@ def fetch_rules(url):
     return data
 
 def extract_security_group_rules(rules):
-    sg_data = defaultdict(list)
+    sg_data = defaultdict(lambda:[[],[]])
     for rule in rules:
-        low = rule.get('low port',0)
-        high = rule.get('high port',0)
+        low = rule.get('low port')
+        high = rule.get('high port')
         protocol = rule.get('IP Protocol','Unknown')
         security_groups = rule.get('Security Group')
 
-        if security_groups:
-            sg_data[security_groups].append([[low, high],[protocol]])
+        if security_groups and low is not None and high is not None:
+            sg_data[security_groups][0].append((low, high))
+            sg_data[security_groups][1].append(protocol)
 
     return sg_data
 
