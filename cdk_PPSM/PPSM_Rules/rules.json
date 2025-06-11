@@ -1,18 +1,18 @@
 [
     {
-        "IP Protocol": "HTTP",
+        "IP Protocol": "TCP",
         "low port": 80,
         "high port": 80,
         "Security Group": "PPSM-HTTP"
     },
     {
-        "IP Protocol": "HTTPS",
+        "IP Protocol": "TCP",
         "low port": 443,
         "high port": 443,
         "Security Group": "PPSM-HTTP"
     },
     {
-        "IP Protocol": "HTTP",
+        "IP Protocol": "UDP",
         "low port": 80,
         "high port": 80,
         "Security Group": "MIN-HTTP"
