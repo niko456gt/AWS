@@ -5,6 +5,7 @@ from collections import defaultdict
 
 
 ec2 = boto3.client('ec2')
+cloudwatch = boto3.client('cloudwatch')
 
 
 def handler(event,context):
@@ -14,6 +15,8 @@ def handler(event,context):
         actual = get_actual_sg_rules()
 
         compliant, non_compliant = compare_rules(expected, actual)
+
+        publish_metrics_to_cloudwatch(len(compliant), len(non_compliant))
 
         return {
             "statusCode": 200,
@@ -110,3 +113,27 @@ def compare_rules(expected, actual):
             non_compliant.append(sg_name)
 
     return compliant, non_compliant
+
+
+def publish_metrics_to_cloudwatch(compliant_count, non_compliant_count):
+    cloudwatch.put_metric_data(
+        Namespace='SecurityGroupCompliance',
+        MetricData=[
+            {
+                'MetricName': 'ComplianceStatus',
+                'Dimensions': [
+                    {'Name': 'Status', 'Value': 'Compliant'}
+                ],
+                'Value': compliant_count,
+                'Unit': 'Count'
+            },
+            {
+                'MetricName': 'ComplianceStatus',
+                'Dimensions': [
+                    {'Name': 'Status', 'Value': 'NonCompliant'}
+                ],
+                'Value': non_compliant_count,
+                'Unit': 'Count'
+            }
+        ]
+    )
