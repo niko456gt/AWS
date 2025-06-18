@@ -29,7 +29,8 @@ class LambdaStack(Stack):
             initial_policy=[
                 iam.PolicyStatement(
                     actions=["ec2:DescribeSecurityGroups",
-                             "cloudwatch:PutMetricData"],
+                             "cloudwatch:PutMetricData",
+                             "cloudwatch:describeLogStreams",],
                     resources=["*"]
                 )
             ]

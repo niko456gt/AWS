@@ -2,6 +2,7 @@ import requests
 import json 
 import boto3
 from collections import defaultdict
+import re
 
 
 ec2 = boto3.client('ec2')
@@ -9,10 +10,9 @@ cloudwatch = boto3.client('cloudwatch')
 
 
 def handler(event,context):
-    PPSM_JSON = "https://raw.githubusercontent.com/niko456gt/AWS/refs/heads/main/cdk_PPSM/PPSM_Rules/rules.json"
     try:
         expected = fetch_expected_rules()
-        actual = get_actual_sg_rules()
+        actual = get_actual_sg_rules(expected)
 
         compliant, non_compliant = compare_rules(expected, actual)
 
@@ -34,6 +34,9 @@ def handler(event,context):
             "body": f"Error: {str(e)}"
         }
 
+def clean_instance_name(name):
+    # Remove anything in parentheses and strip whitespace
+    return re.sub(r'\s*\(.*?\)', '', name).strip()
 
 
 def normalize_description(desc):
@@ -44,20 +47,43 @@ def normalize_description(desc):
 
 
 def fetch_expected_rules():
-    response = requests.get("https://raw.githubusercontent.com/niko456gt/AWS/refs/heads/main/cdk_PPSM/PPSM_Rules/rules.json")
+    github_url = "https://web.git.mil/api/v4/projects/20690/repository/files/PPSM_JSON%2FMCCOG-AWS-SCCA-PPSM.json/raw?ref=Development"
+    github_token = ("3aLRUxd-_mXqWrCRYe_C")
+    headers = {"PRIVATE-TOKEN": "3aLRUxd-_mXqWrCRYe_C"}
+
+
+    response = requests.get(github_url, headers=headers)
     response.raise_for_status()
     rules = response.json()
 
-    sg_data = defaultdict(lambda: [[], []])
-    for rule in rules:
-        low = rule.get('low port')
-        high = rule.get('high port')
-        protocol = rule.get('IP Protocol', 'Unknown')
-        sg_name = rule.get('Security Group')
 
-        if sg_name and low is not None and high is not None:
-            sg_data[sg_name][0].append([low, high])
-            sg_data[sg_name][1].append(normalize_description(protocol))
+    sg_data = defaultdict(lambda: [[], []])
+
+    for rule in rules:
+        low = rule.get('Low Port')
+        high = rule.get('High Port')
+        protocol = rule.get('IP Protocol', 'Unknown')
+        sg_name = rule.get('AWS SCCA Security Group')
+
+        if low is not None and high is not None:
+            try:
+                low = int(low)
+                high = int(high)
+            except ValueError:
+                continue  # skip if ports are not valid integers
+        else:
+            continue  # skip if ports are missing
+
+        if not sg_name:
+            continue
+
+        instance_names = [clean_instance_name(name) for name in sg_name.split(',')]
+
+        for instance_name in instance_names:
+            sg_data[instance_name][0].append([low, high])
+            sg_data[instance_name][1].append(protocol)
+
+
 
     return dict(sg_data)
 
@@ -68,24 +94,56 @@ def get_security_group_name(sg):
             return tag.get('Value')
     return sg.get('GroupName')
 
-def get_actual_sg_rules():
+
+
+
+def get_sg_ids_from_instance_name(instance_name):
+    response = ec2.describe_instances(
+        Filters=[{
+            'Name': 'tag:Name',
+            'Values': [instance_name]
+        }]
+    )
+    sg_ids = set()
+    for reservation in response['Reservations']:
+        for instance in reservation['Instances']:
+            for sg in instance.get('SecurityGroups', []):
+                sg_ids.add(sg['GroupId'])
+    return list(sg_ids)
+
+def get_actual_sg_rules(expected_rules):
     sg_data = defaultdict(lambda: [[], []])
-    response = ec2.describe_security_groups()
 
-    for sg in response['SecurityGroups']:
-        name = get_security_group_name(sg)
+    for instance_name in expected_rules:
+        sg_ids = get_sg_ids_from_instance_name(instance_name)
+        if not sg_ids:
+            continue
 
-        for rule in sg.get('IpPermissions', []):
-            from_port = rule.get('FromPort')
-            to_port = rule.get('ToPort')
-            if from_port is None or to_port is None:
-                continue
+        response = ec2.describe_security_groups(GroupIds=sg_ids)
+        for sg in response['SecurityGroups']:
+            for rule in sg.get('IpPermissions', []):
+                from_port = rule.get('FromPort')
+                to_port = rule.get('ToPort')
+                proto = normalize_description(rule.get('IpProtocol'))
 
-            protocol = rule.get('IpProtocol', 'Unknown')
-            protocol = normalize_description(protocol)
+                if from_port is None or to_port is None:
+                    continue
 
-            sg_data[name][0].append([from_port, to_port])
-            sg_data[name][1].append(protocol)
+                # Count each source separately
+                sources = (
+                    rule.get('IpRanges', []) +
+                    rule.get('Ipv6Ranges', []) +
+                    rule.get('UserIdGroupPairs', []) +
+                    rule.get('PrefixListIds', [])
+                )
+                if not sources:
+                    # no specific source, still count the rule
+                    sg_data[instance_name][0].append([from_port, to_port])
+                    sg_data[instance_name][1].append(proto)
+                else:
+                    for _ in sources:
+                        sg_data[instance_name][0].append([from_port, to_port])
+                        sg_data[instance_name][1].append(proto)
 
     return dict(sg_data)
 
@@ -94,23 +152,23 @@ def compare_rules(expected, actual):
     compliant = []
     non_compliant = []
 
-    for sg_name, expected_rules in expected.items():
-        expected_ports, expected_protos = expected_rules
-        actual_rules = actual.get(sg_name)
+    for instance_name, expected_data in expected.items():
+        expected_ports, expected_protos = expected_data
+        actual_data = actual.get(instance_name)
 
-        if not actual_rules:
-            non_compliant.append(sg_name)
+        if not actual_data:
+            non_compliant.append(instance_name)
             continue
 
-        actual_ports, actual_protos = actual_rules
+        actual_ports, actual_protos = actual_data
 
-        if (
-            sorted(expected_ports) == sorted(actual_ports) and
-            sorted(p.upper() for p in expected_protos) == sorted(normalize_description(p) for p in actual_protos)
-        ):
-            compliant.append(sg_name)
+        expected_pairs = sorted(zip(expected_ports, expected_protos))
+        actual_pairs = sorted(zip(actual_ports, actual_protos))
+
+        if expected_pairs == actual_pairs:
+            compliant.append(instance_name)
         else:
-            non_compliant.append(sg_name)
+            non_compliant.append(instance_name)
 
     return compliant, non_compliant
 
