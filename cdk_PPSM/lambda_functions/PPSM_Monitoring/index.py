@@ -195,3 +195,87 @@ def publish_metrics_to_cloudwatch(compliant_count, non_compliant_count):
             }
         ]
     )
+
+def sync_security_group_rules(desired_rules, allow_deletion=False):
+    """
+    Syncs rules to a fixed Security Group named 'Auto_sg'.
+    
+    Args:
+        desired_rules: List of dictionaries with keys 'IP Protocol', 'low port', 'high port', and 'IP range'.
+        allow_deletion (bool): If True, deletes existing rules not in desired_rules.
+    """
+    sg_name = "Auto_sg"
+    ec2 = boto3.client("ec2")
+
+    # Step 1: Get the security group ID by name
+    response = ec2.describe_security_groups(Filters=[{"Name": "group-name", "Values": [sg_name]}])
+    if not response["SecurityGroups"]:
+        raise Exception(f"Security Group '{sg_name}' not found.")
+
+    sg_id = response["SecurityGroups"][0]["GroupId"]
+    current_permissions = response["SecurityGroups"][0].get("IpPermissions", [])
+
+    # Step 2: Build desired permission structure
+    new_permissions = []
+    for rule in desired_rules:
+        proto = rule.get("IP Protocol", "-1")
+        from_port = int(rule.get("low port"))
+        to_port = int(rule.get("high port"))
+        cidr = rule.get("IP range", "0.0.0.0/0")
+
+        new_permissions.append({
+            "IpProtocol": proto,
+            "FromPort": from_port,
+            "ToPort": to_port,
+            "IpRanges": [{"CidrIp": cidr}]
+        })
+
+    # Step 3: Normalize and compare current vs desired
+    def normalize(perms):
+        norm = set()
+        for p in perms:
+            proto = p.get("IpProtocol", "-1")
+            from_port = p.get("FromPort", -1)
+            to_port = p.get("ToPort", -1)
+            cidrs = [r.get("CidrIp") for r in p.get("IpRanges", [])]
+            for cidr in cidrs:
+                norm.add((proto, from_port, to_port, cidr))
+        return norm
+
+    current_rules = normalize(current_permissions)
+    desired_rules_set = normalize(new_permissions)
+
+    to_add = desired_rules_set - current_rules
+    to_remove = current_rules - desired_rules_set if allow_deletion else set()
+
+    # Step 4: Add missing rules
+    if to_add:
+        permissions_to_add = []
+        for proto, from_p, to_p, cidr in to_add:
+            permissions_to_add.append({
+                "IpProtocol": proto,
+                "FromPort": from_p,
+                "ToPort": to_p,
+                "IpRanges": [{"CidrIp": cidr}]
+            })
+
+        ec2.authorize_security_group_ingress(
+            GroupId=sg_id,
+            IpPermissions=permissions_to_add
+        )
+
+    # Step 5: Optionally remove rules not in desired
+    if allow_deletion and to_remove:
+        permissions_to_remove = []
+        for proto, from_p, to_p, cidr in to_remove:
+            permissions_to_remove.append({
+                "IpProtocol": proto,
+                "FromPort": from_p,
+                "ToPort": to_p,
+                "IpRanges": [{"CidrIp": cidr}]
+            })
+
+        ec2.revoke_security_group_ingress(
+            GroupId=sg_id,
+            IpPermissions=permissions_to_remove
+        )

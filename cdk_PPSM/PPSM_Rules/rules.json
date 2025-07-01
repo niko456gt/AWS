@@ -3,18 +3,22 @@
         "IP Protocol": "TCP",
         "low port": 80,
         "high port": 80,
-        "Security Group": "PPSM-HTTP"
+        "Security Group": "PPSM-HTTP",
+        "IP range": "192.168.0.0/16"
+
     },
     {
         "IP Protocol": "TCP",
         "low port": 443,
         "high port": 443,
-        "Security Group": "PPSM-HTTP"
+        "Security Group": "PPSM-HTTP",
+        "IP range": "192.168.0.0/16"
     },
     {
         "IP Protocol": "UDP",
         "low port": 80,
         "high port": 80,
-        "Security Group": "MIN-HTTP"
+        "Security Group": "auto_sg",
+        "IP range": "192.168.0.0/16"
     }
 ]
