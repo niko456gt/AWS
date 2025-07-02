@@ -15,7 +15,7 @@
         "IP range": "192.168.0.0/16"
     },
     {
-        "IP Protocol": "UDP",
+        "IP Protocol": "TCP",
         "low port": 80,
         "high port": 80,
         "Security Group": "auto_sg",
