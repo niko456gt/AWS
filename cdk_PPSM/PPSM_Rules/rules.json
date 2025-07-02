@@ -27,5 +27,12 @@
         "high port": 443,
         "Security Group": "auto_sg",
         "IP range": "192.168.0.0/16"
+    },
+    {
+        "IP Protocol": "TCP",
+        "low port": 20,
+        "high port": 20,
+        "Security Group": "auto_sg",
+        "IP range": "192.168.0.0/16"
     }
 ]
