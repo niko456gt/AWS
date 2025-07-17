@@ -16,8 +16,8 @@
     },
       {
         "IP Protocol": "TCP",
-        "low port": 443,
-        "high port": 443,
+        "low port": 445,
+        "high port": 445,
         "Security Group": "PPSM-HTTP",
         "IP range": "127.0.0.1/32"
     },
