@@ -28,9 +28,12 @@ class LambdaStack(Stack):
             description="Monitoring of PPSM rules",
             initial_policy=[
                 iam.PolicyStatement(
-                    actions=["ec2:DescribeSecurityGroups",
-                             "cloudwatch:PutMetricData",
-                             "cloudwatch:describeLogStreams",],
+                    actions=["cloudwatch:PutMetricData",
+				"logs:DescribeLogStreams",
+				"ec2:DescribeSecurityGroups",
+				"ec2:DescribeInstances",
+				"ec2:AuthorizeSecurityGroupIngress",
+				"ec2:RevokeSecurityGroupIngress"],
                     resources=["*"]
                 )
             ]

@@ -4,6 +4,7 @@ import aws_cdk as cdk
 
 from my_stacks.lambda_stack import LambdaStack
 from my_stacks.dashboard_stack import SgComplianceDashboardStack
+from my_stacks.event_bridge_sns import SecurityGroupEventsStack 
 
 
 app = cdk.App()
@@ -19,5 +20,6 @@ PPSM_Dashboard = SgComplianceDashboardStack(app, "SgComplianceDashboardStack",
         region=os.getenv('CDK_DEFAULT_REGION')
     )
 )
+SecurityGroupEventsStack(app, "SecurityGroupEventsStack")
 
 app.synth()
